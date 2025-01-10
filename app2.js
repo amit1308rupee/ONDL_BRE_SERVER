@@ -6,6 +6,7 @@ const cors = require('cors');
 const { handleMulterErrors } = require('./controllers/customerDataController');
 const cibilRoutes = require('./routes/cibilRoutes');
 const lenderRoutes = require('./routes/lenderRoutes');
+const eligibilityRoutes = require('./routes/basicEligibilityRoutes');
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use(cors())
 // app.use('/api', fileRoutes);
 app.use('/api', cibilRoutes);
 app.use('/api', lenderRoutes);
+app.use('/api', eligibilityRoutes);
 
 // Error handling middleware
 app.use(handleMulterErrors);
