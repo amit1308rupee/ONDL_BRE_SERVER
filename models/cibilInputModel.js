@@ -3,8 +3,8 @@ const db = require('../config/database');
 const CibilInput = {};
 
 CibilInput.create = (data, callback) => {
-    const query = `INSERT INTO cibil_input (name, pancard, mobile, lead_id, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())`;
-    db.query(query, [data.name, data.pancard, data.mobile, data.lead_id], callback);
+    const query = `INSERT INTO cibil_input (name, pancard, mobile, lead_id,current_address, created_at, updated_at) VALUES (?, ?, ?, ?,?, NOW(), NOW())`;
+    db.query(query, [data.name, data.pancard, data.mobile, data.lead_id,JSON.stringify(data.current_address)], callback);
 };
 
 // Function to find a CibilInput by lead_id

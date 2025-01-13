@@ -3,9 +3,9 @@ const CibilInput = require('../models/cibilInputModel');
 const BasicEligibleLender = require('../models/basicEligibleLenderModel');
 
 const checkEligibility = (req, res) => {
-    const { pancard, name, mobile, salary, age, pincode, lead_id } = req.body;
+    const { pancard, name, mobile, salary, age, pincode, lead_id,current_address } = req.body;
 
-    console.log('Request received:', req.body);
+    // console.log('Request received:', req.body);
 
     // Validate required fields
     const missingFields = [];
@@ -15,9 +15,10 @@ const checkEligibility = (req, res) => {
     if (!salary) missingFields.push('salary');
     if (!age) missingFields.push('age');
     if (!pincode) missingFields.push('pincode');
+    if (!current_address) missingFields.push('Current Address');
     if (!lead_id) missingFields.push('lead_id');
     if (missingFields.length > 0) {
-        console.log('Validation failed. Missing fields:', missingFields);
+        // console.log('Validation failed. Missing fields:', missingFields);
         return res.status(400).send({
             status: 'failure',
             message: 'Validation failed.',
@@ -27,9 +28,9 @@ const checkEligibility = (req, res) => {
     }
 
     // Check eligibility
-    Lender.findAll((err, lenders) => {
+    Lender.findAll((err, lenders) => { 
         if (err) {
-            console.error('Error fetching lenders:', err);
+            // console.error('Error fetching lenders:', err);
             return res.status(500).send({
                 status: 'failure',
                 message: 'Internal server error',
@@ -38,7 +39,7 @@ const checkEligibility = (req, res) => {
             });
         }
 
-        console.log('Lenders fetched:', lenders);
+        // console.log('Lenders fetched:', lenders);
 
         const eligibleLenders = lenders.filter(lender => {
             let pinRange;
@@ -57,7 +58,7 @@ const checkEligibility = (req, res) => {
                 pinRange.includes(pincode);
         });
 
-        console.log('Eligible lenders:', eligibleLenders);
+        // console.log('Eligible lenders:', eligibleLenders);
 
         const ineligibleReasons = lenders.map(lender => {
             let pinRange;
@@ -87,7 +88,7 @@ const checkEligibility = (req, res) => {
             return null;
         }).filter(reason => reason !== null);
 
-        console.log('Ineligible reasons:', ineligibleReasons);
+        // console.log('Ineligible reasons:', ineligibleReasons);
 
         const lenderNames = eligibleLenders.map(lender => lender.lender_name);
         const basicEligibility = lenderNames.length > 0;
@@ -137,7 +138,7 @@ const checkEligibility = (req, res) => {
                 }
 
                 if (Errors.length > 0) {
-                    console.log('Validation errors:', Errors);
+                    // console.log('Validation errors:', Errors);
                     return res.status(400).send({
                         status: 'failure',
                         message: 'Validation errors',
@@ -149,7 +150,7 @@ const checkEligibility = (req, res) => {
                 // Save data if any lender requires CIBIL and there are eligible lenders
                 const requiresCibil = eligibleLenders.some(lender => lender.cibil_required);
                 if (basicEligibility && requiresCibil) {
-                    const cibilData = { name, pancard, mobile, lead_id };
+                    const cibilData = { name, pancard, mobile, lead_id , current_address};
                     CibilInput.create(cibilData, (err) => {
                         if (err) {
                             console.error('Error saving CIBIL input:', err);
@@ -181,7 +182,7 @@ const checkEligibility = (req, res) => {
                         });
                     }
 
-                    console.log('Eligibility check completed successfully');
+                    // console.log('Eligibility check completed successfully');
                 });
                 res.status(200).send({
                     status: 'success',
