@@ -1,8 +1,11 @@
 const Lender = require('../models/lenderModel');
 const CibilInput = require('../models/cibilInputModel');
+const BasicEligibleLender = require('../models/basicEligibleLenderModel');
 
 const checkEligibility = (req, res) => {
     const { pancard, name, mobile, salary, age, pincode, lead_id } = req.body;
+
+    console.log('Request received:', req.body);
 
     // Validate required fields
     const missingFields = [];
@@ -14,6 +17,7 @@ const checkEligibility = (req, res) => {
     if (!pincode) missingFields.push('pincode');
     if (!lead_id) missingFields.push('lead_id');
     if (missingFields.length > 0) {
+        console.log('Validation failed. Missing fields:', missingFields);
         return res.status(400).send({
             status: 'failure',
             message: 'Validation failed.',
@@ -34,6 +38,8 @@ const checkEligibility = (req, res) => {
             });
         }
 
+        console.log('Lenders fetched:', lenders);
+
         const eligibleLenders = lenders.filter(lender => {
             let pinRange;
             try {
@@ -50,6 +56,8 @@ const checkEligibility = (req, res) => {
                 age <= lender.max_age &&
                 pinRange.includes(pincode);
         });
+
+        console.log('Eligible lenders:', eligibleLenders);
 
         const ineligibleReasons = lenders.map(lender => {
             let pinRange;
@@ -79,18 +87,38 @@ const checkEligibility = (req, res) => {
             return null;
         }).filter(reason => reason !== null);
 
-
+        console.log('Ineligible reasons:', ineligibleReasons);
 
         const lenderNames = eligibleLenders.map(lender => lender.lender_name);
         const basicEligibility = lenderNames.length > 0;
 
-        // Save data if any lender requires CIBIL and there are eligible lenders
-        const requiresCibil = eligibleLenders.some(lender => lender.cibil_required);
-        if (basicEligibility && requiresCibil) {
-            const cibilData = { name, pancard, mobile, lead_id };
-            CibilInput.create(cibilData, (err) => {
+        const Errors = [];
+
+        // Check if lead_id already exists in CibilInput
+        CibilInput.findByLeadId(lead_id, (err, existingCibilLead) => {
+            if (err) {
+                console.error('Error checking CIBIL lead_id:', err);
+                return res.status(500).send({
+                    status: 'failure',
+                    message: 'Internal server error',
+                    data: null,
+                    errors: [{ message: err.message }]
+                });
+            }
+
+            if (existingCibilLead) {
+                Errors.push({
+                    status: 'failure',
+                    message: 'Lead_id already exists in CIBIL input',
+                    data: null,
+                    errors: [{ message: 'Lead_id with this id already exists in CIBIL input' }]
+                });
+            }
+
+            // Check if lead_id already exists in BasicEligibleLender
+            BasicEligibleLender.findByLeadId(lead_id, (err, existingLead) => {
                 if (err) {
-                    console.error('Error saving CIBIL input:', err);
+                    console.error('Error checking lead_id:', err);
                     return res.status(500).send({
                         status: 'failure',
                         message: 'Internal server error',
@@ -98,14 +126,70 @@ const checkEligibility = (req, res) => {
                         errors: [{ message: err.message }]
                     });
                 }
-            });
-        }
 
-        res.status(200).send({
-            status: 'success',
-            message: 'Eligibility check completed',
-            data: { basic_eligibility: basicEligibility, lender_names: lenderNames, ineligible_reasons: ineligibleReasons },
-            errors: null
+                if (existingLead) {
+                    Errors.push({
+                        status: 'failure',
+                        message: 'Lead_id already exists in BasicEligibleLender',
+                        data: null,
+                        errors: [{ message: 'Lead_id with this id already exists in BasicEligibleLender' }]
+                    });
+                }
+
+                if (Errors.length > 0) {
+                    console.log('Validation errors:', Errors);
+                    return res.status(400).send({
+                        status: 'failure',
+                        message: 'Validation errors',
+                        data: null,
+                        errors: Errors
+                    });
+                }
+
+                // Save data if any lender requires CIBIL and there are eligible lenders
+                const requiresCibil = eligibleLenders.some(lender => lender.cibil_required);
+                if (basicEligibility && requiresCibil) {
+                    const cibilData = { name, pancard, mobile, lead_id };
+                    CibilInput.create(cibilData, (err) => {
+                        if (err) {
+                            console.error('Error saving CIBIL input:', err);
+                            return res.status(500).send({
+                                status: 'failure',
+                                message: 'Internal server error',
+                                data: null,
+                                errors: [{ message: err.message }]
+                            });
+                        }
+                    });
+                }
+
+                // Save basic eligibility data
+                const basicEligibleData = {
+                    lead_id,
+                    basic_eligibility: basicEligibility,
+                    lenders: lenderNames
+                };
+
+                BasicEligibleLender.create(basicEligibleData, (err) => {
+                    if (err) {
+                        console.error('Error saving basic eligibility data:', err);
+                        return res.status(500).send({
+                            status: 'failure',
+                            message: 'Internal server error',
+                            data: null,
+                            errors: [{ message: err.message }]
+                        });
+                    }
+
+                    console.log('Eligibility check completed successfully');
+                });
+                res.status(200).send({
+                    status: 'success',
+                    message: 'Eligibility check completed',
+                    data: { basic_eligibility: basicEligibility, lender_names: lenderNames, ineligible_reasons: ineligibleReasons },
+                    errors: null
+                });
+            });
         });
     });
 };
